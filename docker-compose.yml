@@ -1,0 +1,177 @@
+# Services for this project.
+#
+# Development (database only; run the backend and frontend yourself, see README.md):
+#   docker compose up -d
+# The whole application (database + backend + web interface), Step 14.1:
+#   docker compose --profile app up -d --build        then open http://localhost:8080
+#
+# Stop:   docker compose --profile app down        (keeps data)
+# Reset:  docker compose --profile app down -v     (DELETES the database and uploads)
+name: case-search
+
+services:
+  db:
+    # PostgreSQL 17 with the pgvector extension pre-installed.
+    # Pinned to an exact version so everyone gets the same database.
+    image: pgvector/pgvector:0.8.7-pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-caseuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-casesdb}
+    ports:
+      # Bound to 127.0.0.1 so the database is not reachable from other machines on the network.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # SQL files here run once, the first time the database is created.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    profiles: ["app"]
+    build: ./backend
+    image: case-search-backend:local
+    environment:
+      # The development .env says "development"; inside Docker the API runs as production
+      # (no interactive API docs) unless APP_ENVIRONMENT says otherwise.
+      ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-caseuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-casesdb}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      AUDIT_SECRET: ${AUDIT_SECRET:?Set AUDIT_SECRET in .env}
+      # Ollama runs on the host computer, not in a container.
+      OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
+      CHAT_MODEL: ${CHAT_MODEL:-qwen3:4b-instruct-2507-q4_K_M}
+      CHAT_TIMEOUT_SECONDS: ${CHAT_TIMEOUT_SECONDS:-280}
+      MAX_FAILED_LOGINS_PER_IP: ${MAX_FAILED_LOGINS_PER_IP:-20}
+      # Retention (Step 14.3, scripts.retention). AUDIT_RETENTION_DAYS empty = keep audit entries.
+      UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-30}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-}
+      # The embedding model is read from ./models; never contact the internet for it.
+      HF_HUB_OFFLINE: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Uploads and downloads live in a Docker volume, not in the project folder.
+      - appdata:/srv/case-search/data
+      - ./models:/srv/case-search/models
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # The slim image has no curl, so Python asks /api/health (which also checks the database).
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    # No "ports": only the web server can reach the API.
+
+  web:
+    profiles: ["app"]
+    build: ./frontend
+    image: case-search-web:local
+    environment:
+      # See deploy/Caddyfile. Defaults: https://localhost:8443 with Caddy's own certificate authority.
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      TLS: ${TLS:-internal}
+      HTTP_PORT: ${HTTP_PORT:-8080}
+      HTTPS_PORT: ${HTTPS_PORT:-8443}
+    ports:
+      # WEB_BIND=127.0.0.1: only this computer can connect. Serving other computers: see docs/steps/14-5-*.
+      - "${WEB_BIND:-127.0.0.1}:${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}"
+      # Plain HTTP only redirects to HTTPS.
+      - "${WEB_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:${HTTP_PORT:-8080}"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Your organisation's certificate and key, if TLS points at them (never committed to Git).
+      - ./deploy/certs:/certs:ro
+      # Caddy's state, including its own certificate authority's key: keep it as private as the database.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backup:
+    # Backups and restores (Step 14.3):
+    #   docker compose --profile backup run --rm backup                                  back up now
+    #   docker compose --profile backup run --rm backup /deploy/restore.sh check <name>  test a backup
+    profiles: ["backup"]
+    # The database's own image, so pg_dump and pg_restore always match the server's version.
+    image: pgvector/pgvector:0.8.7-pg17
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-caseuser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATABASE: ${POSTGRES_DB:-casesdb}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./deploy:/deploy:ro
+      # Backups hold all the application's data: keep them on an encrypted disk that is not synced
+      # to a cloud service (docs/steps/14-3-*).
+      - ${BACKUP_DIR:-./backups}:/backups
+      - appdata:/appdata
+      - caddy_data:/caddy_data
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["sh"]
+    command: ["/deploy/backup.sh"]
+
+  # --- CDR Analysis services (optional; start with --profile cdr) ---
+  # Copy config-templates/india_profile.env.example values into your .env to activate.
+
+  cdr-db-d1:
+    profiles: ["cdr"]
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${CDR_D1_DB_USER:-cdr_app}
+      POSTGRES_PASSWORD: ${CDR_D1_DB_PASSWORD:?Set CDR_D1_DB_PASSWORD in .env for CDR services}
+      POSTGRES_DB: ${CDR_D1_DB_NAME:-cdr_analysis}
+    ports:
+      - "127.0.0.1:${CDR_D1_DB_PORT:-55470}:5432"
+    volumes:
+      - cdr_pgdata_d1:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  cdr-db-d3:
+    profiles: ["cdr"]
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: ${CDR_D3_DB_USER:-cdr_d3}
+      POSTGRES_PASSWORD: ${CDR_D3_DB_PASSWORD:?Set CDR_D3_DB_PASSWORD in .env for CDR services}
+      POSTGRES_DB: ${CDR_D3_DB_NAME:-cdr_d3}
+    ports:
+      - "127.0.0.1:${CDR_D3_DB_PORT:-55471}:5432"
+    volumes:
+      - cdr_pgdata_d3:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  appdata:
+  caddy_data:
+  caddy_config:
+  cdr_pgdata_d1:
+  cdr_pgdata_d3:

@@ -1,0 +1,68 @@
+# Web server for the full stack (Steps 14.1-14.2): HTTPS, security headers, the built web interface,
+# and /api passed on to the backend. Used by the "web" service in docker-compose.yml.
+#
+# Settings (environment variables, see docker-compose.yml and .env.example):
+#   SITE_ADDRESS  the name people type in the browser (default: localhost)
+#   TLS           "internal" = Caddy's own certificate authority (testing, closed networks; browsers must be
+#                 told to trust it), or "<certificate file> <key file>" for a certificate from your organisation
+#   HTTP_PORT / HTTPS_PORT   ports inside and outside the container (default 8080 / 8443)
+{
+	# No admin endpoint inside the container.
+	admin off
+	# Caddy can't add its certificate authority to the trust store from inside a container; that is a
+	# manual step on each computer that should trust it (docs/steps/14-2-*).
+	skip_install_trust
+	# Plain HTTP (only redirects to HTTPS) listens here.
+	http_port {$HTTP_PORT:8080}
+	# A browser opening https://127.0.0.1:... doesn't say which name it wants (no SNI is sent for an IP
+	# address), and inside Docker Caddy can't work it out. Use the 127.0.0.1 certificate in that case.
+	default_sni 127.0.0.1
+}
+
+# HTTPS listens on the port in the address. It is written here, rather than as a global https_port,
+# so that redirects from plain HTTP keep a non-standard port (e.g. https://localhost:8443/...).
+# 127.0.0.1 is served too (with a certificate for that address), because people type it as often as
+# "localhost". Don't set SITE_ADDRESS=127.0.0.1: it is already here.
+{$SITE_ADDRESS:localhost}:{$HTTPS_PORT:8443}, 127.0.0.1:{$HTTPS_PORT:8443} {
+	tls {$TLS:internal}
+
+	encode zstd gzip
+
+	header {
+		# The page may load scripts, styles, images and data only from this server. Inline styles are
+		# allowed because the interface library (Mantine) sets some; inline scripts are not.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		# No other site may show this one inside a frame (clickjacking).
+		X-Frame-Options "DENY"
+		# Case IDs in addresses are not passed on to other sites.
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+		# Once the real address and certificate are final (14.5), also tell browsers to always use HTTPS:
+		# Strict-Transport-Security "max-age=31536000"
+	}
+
+	# Uploads: the backend accepts at most 20 MB; anything much larger is refused here already.
+	handle /api/uploads* {
+		request_body {
+			max_size 25MB
+		}
+		reverse_proxy backend:8000
+	}
+
+	handle /api/* {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		root * /srv/www
+		# Single-page app: any other path gets index.html, and the app shows the right page.
+		try_files {path} /index.html
+		file_server
+	}
+}

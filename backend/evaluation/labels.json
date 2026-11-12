@@ -1,0 +1,224 @@
+{
+  "about": "DRAFT relevance labels, written by Claude (an AI assistant) on 2026-11-04 by reading each of the 100 judgments' headnotes (the summary on page 1), not the search results. They have NOT been reviewed by a lawyer. Grades: 2 = on the topic of the query, 1 = partly relevant or a closely related issue; cases not listed are treated as not relevant. A legal reviewer should check and correct these before the results are relied on. Q01-Q22 are topic searches; Q23-Q28 (specific names, provisions and statutes) were added after the first run, because the first set had no searches of that kind.",
+  "dataset": "Indian Supreme Court Judgments, 100-case subset (2022-2023), see docs/DATASET.md",
+  "queries": [
+    {
+      "id": "Q01",
+      "query": "land acquisition lapsed under Section 24(2) of the 2013 Act",
+      "need": "Whether acquisition under the 1894 Act lapsed under s.24(2) of the 2013 Act (Pune Municipal Corporation line of cases).",
+      "relevant": {
+        "SC-ESCR010000582023": 2, "SC-ESCR010000932023": 2, "SC-ESCR010000952023": 2,
+        "SC-ESCR010001222022": 2, "SC-ESCR010001942023": 2, "SC-ESCR010009222022": 1
+      }
+    },
+    {
+      "id": "Q02",
+      "query": "acquisition of farmland cancelled because the owners were never paid compensation and kept possession",
+      "need": "Plain-language version of Q01.",
+      "relevant": {
+        "SC-ESCR010000582023": 2, "SC-ESCR010000932023": 2, "SC-ESCR010000952023": 2,
+        "SC-ESCR010001222022": 2, "SC-ESCR010001942023": 2, "SC-ESCR010009222022": 1
+      }
+    },
+    {
+      "id": "Q03",
+      "query": "murder conviction based only on circumstantial evidence",
+      "need": "Criminal appeals about convictions for murder resting on circumstantial evidence (2); other murder appeals about appreciation of evidence (1).",
+      "relevant": {
+        "SC-ESCR010000092023": 2, "SC-ESCR010004562023": 2, "SC-ESCR010002442023": 2,
+        "SC-ESCR010006862023": 1, "SC-ESCR010007212023": 1, "SC-ESCR010002432023": 1, "SC-ESCR010004082022": 1
+      }
+    },
+    {
+      "id": "Q04",
+      "query": "recovery of dead body on disclosure statement of accused under Section 27 Evidence Act",
+      "need": "Discovery of a fact on information from the accused (s.27 Evidence Act).",
+      "relevant": {"SC-ESCR010000092023": 2}
+    },
+    {
+      "id": "Q05",
+      "query": "High Court wrongly granted bail to the accused in a serious offence and the bail was cancelled",
+      "need": "Appeals against grant of bail / cancellation of bail.",
+      "relevant": {"SC-ESCR010001962022": 2, "SC-ESCR010005652023": 2, "SC-ESCR010003092023": 1}
+    },
+    {
+      "id": "Q06",
+      "query": "default bail when charge sheet not filed within 90 days",
+      "need": "Statutory (default) bail under s.167(2) CrPC.",
+      "relevant": {"SC-ESCR010001442023": 2, "SC-ESCR010006402023": 1}
+    },
+    {
+      "id": "Q07",
+      "query": "arrest and bail under the Prevention of Money Laundering Act",
+      "need": "Arrest, custody or bail in PMLA cases.",
+      "relevant": {"SC-ESCR010007382023": 2, "SC-ESCR010006402023": 2}
+    },
+    {
+      "id": "Q08",
+      "query": "quashing of criminal proceedings under Section 482 CrPC",
+      "need": "High Court's inherent power to quash complaints/FIRs (2); discharge of accused (1).",
+      "relevant": {"SC-ESCR010000712022": 2, "SC-ESCR010001452022": 2, "SC-ESCR010004682022": 1}
+    },
+    {
+      "id": "Q09",
+      "query": "a business dispute about unpaid money was turned into a cheating case",
+      "need": "A civil/commercial dispute given the colour of a criminal offence.",
+      "relevant": {"SC-ESCR010000712022": 2}
+    },
+    {
+      "id": "Q10",
+      "query": "pension of retired employee wrongly fixed or denied",
+      "need": "Disputes about pension of retired employees (2); other retiral benefits (1).",
+      "relevant": {
+        "SC-ESCR010001322022": 2, "SC-ESCR010001852022": 2, "SC-ESCR010003502022": 2,
+        "SC-ESCR010000122023": 1, "SC-ESCR010007802023": 1
+      }
+    },
+    {
+      "id": "Q11",
+      "query": "dismissal from service after departmental inquiry for misconduct",
+      "need": "Disciplinary proceedings leading to dismissal (2); termination without inquiry or belated challenges (1).",
+      "relevant": {
+        "SC-ESCR010000082022": 2, "SC-ESCR010000552023": 2, "SC-ESCR010003642023": 1, "SC-ESCR010007242022": 1
+      }
+    },
+    {
+      "id": "Q12",
+      "query": "candidate hid a criminal case when applying for a police constable job",
+      "need": "Suppression or disclosure of criminal cases in verification forms for police appointments.",
+      "relevant": {"SC-ESCR010005732023": 2, "SC-ESCR010008032022": 2}
+    },
+    {
+      "id": "Q13",
+      "query": "eligibility criteria for recruitment of teachers",
+      "need": "Selection and eligibility for appointment as teachers.",
+      "relevant": {"SC-ESCR010001302022": 2, "SC-ESCR010002112022": 2, "SC-ESCR010006792022": 1}
+    },
+    {
+      "id": "Q14",
+      "query": "stay of enforcement of an arbitral award",
+      "need": "Challenge to arbitral awards and their stay (2); other arbitration procedure (1).",
+      "relevant": {"SC-ESCR010003402022": 2, "SC-ESCR010003592023": 1, "SC-ESCR010007502023": 1}
+    },
+    {
+      "id": "Q15",
+      "query": "arbitrator fees and termination of the mandate of the arbitral tribunal",
+      "need": "Mandate / ineligibility of arbitrators (2); appointment of arbitrators (1).",
+      "relevant": {"SC-ESCR010007502023": 2, "SC-ESCR010003592023": 1}
+    },
+    {
+      "id": "Q16",
+      "query": "liability to pay service tax",
+      "need": "Service tax disputes.",
+      "relevant": {"SC-ESCR010000472022": 2, "SC-ESCR010003582022": 2, "SC-ESCR010004482023": 2}
+    },
+    {
+      "id": "Q17",
+      "query": "suit for specific performance of an agreement to sell",
+      "need": "Specific performance of agreements to sell property (2); procedural rulings in such suits (1).",
+      "relevant": {"SC-ESCR010009392022": 2, "SC-ESCR010001722023": 2, "SC-ESCR010008242023": 1}
+    },
+    {
+      "id": "Q18",
+      "query": "bank recovering loan dues from a defaulting borrower under SARFAESI",
+      "need": "Enforcement of security interests by banks/ARCs (2); priority of the bank's charge (1).",
+      "relevant": {"SC-ESCR010000292023": 2, "SC-ESCR010000722022": 2, "SC-ESCR010007962023": 1}
+    },
+    {
+      "id": "Q19",
+      "query": "punishment for contempt of court for disobeying court orders",
+      "need": "Civil contempt for wilful disobedience of court orders.",
+      "relevant": {"SC-ESCR010005282023": 2, "SC-ESCR010007732022": 2}
+    },
+    {
+      "id": "Q20",
+      "query": "admission to medical courses and NEET counselling",
+      "need": "Admission to MBBS/BDS/PG medical or dental courses.",
+      "relevant": {"SC-ESCR010007202022": 2, "SC-ESCR010007842022": 2, "SC-ESCR010007112022": 2}
+    },
+    {
+      "id": "Q21",
+      "query": "landlord asked to strike off the tenant's defence for not depositing rent",
+      "need": "Rent control proceedings against tenants (2); other tenancy procedure (1).",
+      "relevant": {"SC-ESCR010007482022": 2, "SC-ESCR010007252023": 1}
+    },
+    {
+      "id": "Q22",
+      "query": "permission to terminate a pregnancy",
+      "need": "Medical termination of pregnancy.",
+      "relevant": {"SC-ESCR010007782023": 2}
+    },
+    {
+      "id": "Q23",
+      "query": "Vijay Mallya contempt for disbursing US$ 40 million",
+      "need": "Specific-term search (party name): SBI v. Vijay Mallya.",
+      "relevant": {"SC-ESCR010007732022": 2}
+    },
+    {
+      "id": "Q24",
+      "query": "Section 6A of the DSPE Act approval before investigating senior officers",
+      "need": "Specific-term search (rare provision): CBI v. R.R. Kishore.",
+      "relevant": {"SC-ESCR010006482023": 2}
+    },
+    {
+      "id": "Q25",
+      "query": "NSEL commodity exchange as a financial establishment under the MPID Act",
+      "need": "Specific-term search (named entity and statute): State of Maharashtra v. 63 Moons Technologies.",
+      "relevant": {"SC-ESCR010005872022": 2}
+    },
+    {
+      "id": "Q26",
+      "query": "divorce for cruelty and irretrievable breakdown of marriage",
+      "need": "Matrimonial dispute: N. Rajendran v. S. Valli.",
+      "relevant": {"SC-ESCR010008382022": 2}
+    },
+    {
+      "id": "Q27",
+      "query": "jurisdiction of the Wakf Tribunal over a suit",
+      "need": "Specific-term search: Mumtaz Yarud Dowla Wakf v. Badam Balakrishna Hotel.",
+      "relevant": {"SC-ESCR010008002023": 2}
+    },
+    {
+      "id": "Q28",
+      "query": "gender cap on performers in cabaret licence conditions",
+      "need": "Specific-term search: Hotel Priya v. State of Maharashtra.",
+      "relevant": {"SC-ESCR010008302022": 2}
+    }
+  ],
+  "similar_cases": [
+    {
+      "id": "S1",
+      "case": "SC-ESCR010000092023",
+      "need": "Boby v. State of Kerala (murder, circumstantial evidence): other circumstantial-evidence murder appeals (2), other murder appeals (1).",
+      "relevant": {
+        "SC-ESCR010004562023": 2, "SC-ESCR010002442023": 2, "SC-ESCR010006862023": 1,
+        "SC-ESCR010007212023": 1, "SC-ESCR010002432023": 1, "SC-ESCR010004082022": 1
+      }
+    },
+    {
+      "id": "S2",
+      "case": "SC-ESCR010001322022",
+      "need": "M.L. Patil (arrears of pension): other pension cases (2), other retiral benefits (1).",
+      "relevant": {
+        "SC-ESCR010001852022": 2, "SC-ESCR010003502022": 2, "SC-ESCR010000122023": 1, "SC-ESCR010007802023": 1
+      }
+    },
+    {
+      "id": "S3",
+      "case": "SC-ESCR010000582023",
+      "need": "Khajan Singh (s.24(2) lapse of land acquisition): the other s.24(2) cases (2), s.24(1) (1).",
+      "relevant": {
+        "SC-ESCR010000932023": 2, "SC-ESCR010000952023": 2, "SC-ESCR010001222022": 2,
+        "SC-ESCR010001942023": 2, "SC-ESCR010009222022": 1
+      }
+    },
+    {
+      "id": "S4",
+      "case": "SC-ESCR010001442023",
+      "need": "Qamar Ghani Usmani (default bail): other bail and custody cases.",
+      "relevant": {
+        "SC-ESCR010006402023": 1, "SC-ESCR010007382023": 1, "SC-ESCR010001962022": 1, "SC-ESCR010005652023": 1
+      }
+    }
+  ]
+}

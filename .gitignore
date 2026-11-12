@@ -1,0 +1,40 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / frontend
+node_modules/
+dist/
+
+# Downloaded datasets, uploads and model caches (large, reproducible, may be sensitive)
+data/raw/
+data/processed/
+data/uploads/
+models/
+
+# Editors / OS
+.vscode/*
+!.vscode/settings.json
+.idea/
+Thumbs.db
+.DS_Store
+
+# Local development login details (never commit)
+.dev-credentials.txt
+
+# Step 14.2: certificates and private keys for HTTPS
+deploy/certs/*
+!deploy/certs/README.md
+*.key
+*.pem
+caddy-root.crt
+
+# Step 14.3: backups contain all application data
+backups/

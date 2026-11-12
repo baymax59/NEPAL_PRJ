@@ -1,0 +1,48 @@
+[project]
+name = "case-search-backend"
+version = "0.1.0"
+description = "API for AI-powered similar-case search"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "pgvector>=0.5.1",
+    "psycopg[binary]>=3.3.7",
+    "pwdlib[argon2]>=0.3.1",
+    "pyarrow>=26.0.1",
+    "pydantic-settings>=2.16.2",
+    "pyjwt>=2.15.1",
+    "pypdfium2>=5.14.0",
+    "python-docx>=1.2.0",
+    "python-multipart>=0.0.33",
+    "sentence-transformers>=6.2.0",
+    "sqlalchemy>=2.0",
+    # Used by sentence-transformers; listed here so [tool.uv.sources] below can choose its build.
+    "torch>=2.15.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.uv]
+# This is an application, not a library to publish.
+package = false
+
+# On Linux (the Docker image), install the CPU-only PyTorch build. The default Linux build includes
+# several GB of NVIDIA graphics-card libraries this application doesn't use. Windows builds are CPU-only already.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Lets tests `import app` when pytest is run from the backend folder.
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

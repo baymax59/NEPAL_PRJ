@@ -1,0 +1,9 @@
+FICTIONAL SAMPLE - NOT A REAL FIR. Invented for testing the police-records connector template.
+
+First Information Report No. 0002 of 2026, Example Nagar Police Station (fictional), Example District (fictional).
+
+The complainant, Fictional Complainant Two, states that on the night of 1 August 2026 his motorcycle,
+parked outside the vegetable market, was stolen. The motorcycle was found during a vehicle check on
+15 August 2026 with Fictional Accused C, who could not explain how he came to have it.
+
+Offence registered: BNS 303(2) (theft).

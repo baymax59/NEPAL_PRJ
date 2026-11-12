@@ -1,0 +1,13 @@
+FICTIONAL SAMPLE - NOT A REAL FIR. Invented for testing the police-records connector template.
+
+First Information Report No. 0001 of 2026, Example Nagar Police Station (fictional), Example District (fictional).
+
+The complainant, Fictional Complainant One, a textile trader, states that in June 2026 he agreed to buy
+cotton yarn from Fictional Accused A, who runs a trading firm with Fictional Accused B. On the accused's
+assurance he paid an advance of Rs. 4,50,000 by bank transfer on 2 July 2026. No goods were delivered.
+When he asked for the money back, Fictional Accused A gave him a cheque, which was dishonoured for
+insufficient funds. The accused then stopped answering his calls and closed the firm's office.
+
+The complainant alleges cheating and dishonest misappropriation of the advance by the accused acting
+together. Offences registered: BNS 318(4) (cheating), 316(2) (criminal breach of trust), 61(2)
+(criminal conspiracy).

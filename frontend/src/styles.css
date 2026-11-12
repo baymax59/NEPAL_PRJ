@@ -1,0 +1,11 @@
+/* Printing a case-details page: no navigation or buttons, just the content. */
+@media print {
+  .no-print,
+  .mantine-AppShell-header {
+    display: none !important;
+  }
+
+  .mantine-AppShell-main {
+    padding-top: 0 !important;
+  }
+}
