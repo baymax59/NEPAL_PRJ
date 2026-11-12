@@ -3,10 +3,13 @@
 All require a logged-in user; what each user sees depends on their clearance and grants.
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.audit.log import AuditLog, fingerprint, get_audit_log
 from app.auth.access import AccessContext
@@ -120,15 +123,35 @@ def chat_endpoint(
     except ChatModelUnavailable as exc:
         # "cause" is the technical error behind the message (e.g. ReadTimeout), for whoever investigates.
         cause = type(exc.__cause__).__name__ if exc.__cause__ else None
-        audit.record(
-            "case.chat",
-            AuditOutcome.ERROR,
-            user=user,
-            target_type="case",
-            target_id=display_id,
-            details={**details, "reason": str(exc), "cause": cause},
-        )
+        try:
+            audit.record(
+                "case.chat",
+                AuditOutcome.ERROR,
+                user=user,
+                target_type="case",
+                target_id=display_id,
+                details={**details, "reason": str(exc), "cause": cause},
+            )
+        except Exception:
+            logger.warning("audit.record failed while handling ChatModelUnavailable; original error: %s", exc)
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error in chat endpoint for case %s", display_id)
+        try:
+            audit.record(
+                "case.chat",
+                AuditOutcome.ERROR,
+                user=user,
+                target_type="case",
+                target_id=display_id,
+                details={**details, "reason": f"{type(exc).__name__}: {str(exc)[:200]}", "cause": None},
+            )
+        except Exception:
+            logger.warning("audit.record also failed after unexpected chat error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chat error: {type(exc).__name__}: {str(exc)[:200]}",
+        ) from exc
     audit.record(
         "case.chat",
         AuditOutcome.SUCCESS,
