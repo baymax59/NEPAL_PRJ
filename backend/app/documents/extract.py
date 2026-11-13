@@ -61,6 +61,18 @@ def extract(path: Path) -> ExtractedDocument:
     raise ExtractionError("Unsupported file type: only PDF, Word (.docx) and plain text (.txt) are supported")
 
 
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def extract_known(path: Path, mime_type: str) -> ExtractedDocument:
+    """Extract a file whose type was already decided from its content (stored evidence has no file extension)."""
+    if mime_type == "application/pdf":
+        return _extract_pdf(path)
+    if mime_type == DOCX_MIME:
+        return _extract_docx(path)
+    raise ExtractionError("Text can be extracted from PDF and Word (.docx) files only")
+
+
 def _extract_pdf(path: Path) -> ExtractedDocument:
     try:
         pdf = pdfium.PdfDocument(path)

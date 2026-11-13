@@ -1,6 +1,7 @@
 """Talking to the local language model (Ollama). Nothing is sent to an outside service."""
 
 import json
+import os
 import time
 from collections.abc import Callable
 from typing import Protocol
@@ -28,12 +29,14 @@ class OllamaChatModel:
         timeout_seconds: int,
         transport: httpx.BaseTransport | None = None,  # tests pass a fake Ollama
         clock: Callable[[], float] = time.monotonic,
+        threads: int = 0,
     ):
         self.base_url = base_url.rstrip("/")
         self.name = name
         self.timeout = timeout_seconds
         self.transport = transport
         self.clock = clock
+        self.threads = threads or os.cpu_count() or 0  # 0 = let Ollama choose
 
     def complete(self, messages: list[dict[str, str]]) -> str:
         """The whole answer. `timeout_seconds` limits the total time, not just the wait for the first word.
@@ -48,7 +51,7 @@ class OllamaChatModel:
             "stream": True,
             "keep_alive": "30m",  # stay loaded between questions
             # Low temperature: stick closely to the sources. Short answers are faster on a CPU.
-            "options": {"temperature": 0.1, "num_ctx": 8192, "num_predict": 400},
+            "options": {"temperature": 0.1, "num_ctx": 8192, "num_predict": 300, **({"num_thread": self.threads} if self.threads else {})},
         }
         parts: list[str] = []
         finished = False
@@ -97,4 +100,4 @@ class OllamaChatModel:
 def get_chat_model() -> ChatModel:
     """FastAPI dependency (tests replace it with a fake)."""
     settings = get_settings()
-    return OllamaChatModel(settings.ollama_url, settings.chat_model, settings.chat_timeout_seconds)
+    return OllamaChatModel(settings.ollama_url, settings.chat_model, settings.chat_timeout_seconds, threads=settings.chat_threads)

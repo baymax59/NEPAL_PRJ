@@ -49,11 +49,13 @@ class QueryPassage:
     page_end: int | None
     text: str
     vector: list[float] | None
+    # Where it comes from, when the query has several documents (an investigation: "EV-0002 v1, p.3").
+    source: str | None = None
 
 
 @dataclass
 class QueryDocument:
-    kind: str  # "upload" or "case"
+    kind: str  # "upload", "case", or "investigation" (a Case Management case at a commit, phase CM-5)
     id: str
     title: str
     page_count: int | None
@@ -128,7 +130,8 @@ def _case_conditions(access: AccessContext, filters: CaseFilters, exclude: uuid.
     return conditions
 
 
-def _text_matches(session, access, filters, doc, used, embedder) -> dict[uuid.UUID, _Candidate]:
+def _text_matches(session, access, filters, doc, used, embedder, min_passage_similarity=None) -> dict[uuid.UUID, _Candidate]:
+    bar = embedder.min_passage_similarity if min_passage_similarity is None else min_passage_similarity
     session.execute(text(f"SET LOCAL hnsw.ef_search = {NEIGHBOURS_PER_PASSAGE * 4}"))
     session.execute(text("SET LOCAL hnsw.iterative_scan = strict_order"))
     conditions = _case_conditions(access, filters, doc.exclude_case_id)
@@ -145,7 +148,7 @@ def _text_matches(session, access, filters, doc, used, embedder) -> dict[uuid.UU
             .limit(NEIGHBOURS_PER_PASSAGE)
         ).all()
         for row in rows:
-            if row.similarity < embedder.min_passage_similarity:
+            if row.similarity < bar:
                 break
             candidate = candidates.setdefault(row.case_id, _Candidate(row.case_id))
             if index not in candidate.best or row.similarity > candidate.best[index][1]:
@@ -185,7 +188,9 @@ def find_similar_cases(
     filters: CaseFilters,
     limit: int,
     offset: int,
+    min_passage_similarity: float | None = None,
 ) -> SimilarCasesResponse:
+    """`min_passage_similarity` replaces the embedder's bar for passage-to-passage matches (a registered case's notes need a lower one)."""
     used = sample_evenly(doc.passages, MAX_QUERY_PASSAGES)
     notices = []
     if len(used) < len(doc.passages):
@@ -193,7 +198,7 @@ def find_similar_cases(
 
     text_candidates: dict[uuid.UUID, _Candidate] = {}
     if embedder is not None and doc.vectors_model == embedder.model_name and used:
-        text_candidates = _text_matches(session, access, filters, doc, used, embedder)
+        text_candidates = _text_matches(session, access, filters, doc, used, embedder, min_passage_similarity)
     elif used:
         notices.append(SEMANTIC_UNAVAILABLE)
     provision_candidates = _provision_matches(session, access, filters, doc)
@@ -263,7 +268,8 @@ def _build_results(session, doc, used, page, fused, best_possible, text_candidat
                 pairs.append(
                     PassagePair(
                         similarity=round(similarity, 4),
-                        new_case=PassageExcerpt(page_start=mine.page_start, page_end=mine.page_end, text=_excerpt(mine.text)),
+                        new_case=PassageExcerpt(page_start=mine.page_start, page_end=mine.page_end, text=_excerpt(mine.text),
+                                                source=mine.source),
                         similar_case=PassageExcerpt(
                             page_start=theirs.page_start, page_end=theirs.page_end, text=_excerpt(theirs.text)
                         ),
@@ -275,9 +281,10 @@ def _build_results(session, doc, used, page, fused, best_possible, text_candidat
         reasons = []
         if by_text:
             best = pairs[0]
+            mine = best.new_case.source or f"{page_label(best.new_case.page_start, best.new_case.page_end)} of {_subject(doc)}"
             reasons.append(
                 f"{len(by_text.best)} of {len(used)} passages of {_subject(doc)} have a close match here "
-                f"(closest: {page_label(best.new_case.page_start, best.new_case.page_end)} of {_subject(doc)} ↔ "
+                f"(closest: {mine} ↔ "
                 f"{page_label(best.similar_case.page_start, best.similar_case.page_end)} here, "
                 f"similarity {best.similarity:.2f})"
             )
@@ -304,7 +311,7 @@ def _build_results(session, doc, used, page, fused, best_possible, text_candidat
 
 
 def _subject(doc: QueryDocument) -> str:
-    return "the new case" if doc.kind == "upload" else "the selected case"
+    return {"upload": "the new case", "investigation": "this investigation"}.get(doc.kind, "the selected case")
 
 
 def _differences(doc: QueryDocument, case: Case, only_new: list[str], only_this: list[str]) -> list[str]:

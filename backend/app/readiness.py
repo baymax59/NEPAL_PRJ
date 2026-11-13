@@ -48,9 +48,14 @@ def latest_backup(backup_dir: Path) -> Path | None:
 
 
 def technical_checks(project: Path, env: dict[str, str], *, labels: dict, connector_version: str,
-                     audit_retention_days: int | None, dev_accounts_in_use: list[str], now: dt.datetime) -> list[Check]:
+                     audit_retention_days: int | None, dev_accounts_in_use: list[str], now: dt.datetime,
+                     evidence_root: Path | None = None, worker_last_run: dt.datetime | None = None,
+                     demo_case: str | None = None, demo_accounts_active: list[str] | None = None) -> list[Check]:
+    evidence_root = evidence_root or project / "data" / "evidence"
     checks = [
         Check("Project folder not in a cloud-synced folder (D12)", not is_synced(project), str(project)),
+        # Write-once protection itself can't be checked from here: it is part of decision D14.
+        Check("Evidence store outside cloud-synced folders (D14)", not is_synced(evidence_root), str(evidence_root)),
     ]
 
     backup_dir = (project / env.get("BACKUP_DIR", "./backups")).resolve()
@@ -94,6 +99,34 @@ def technical_checks(project: Path, env: dict[str, str], *, labels: dict, connec
 
     security_doc = project / "docs" / "SECURITY_REVIEW.md"
     checks.append(Check("Internal security review written (D11 input)", security_doc.exists(), "docs/SECURITY_REVIEW.md"))
+
+    # Case Management governance (phase CM-7, decision D16). Values are only measured or compared, never printed.
+    mfa = env.get("CM_MFA_REQUIRED", "").lower() == "true"
+    checks.append(Check("Two-step verification required for administrators and supervisors (D16)", mfa,
+                        "CM_MFA_REQUIRED=true" if mfa else "set CM_MFA_REQUIRED=true once they have set it up"))
+    checks.append(Check("Audit checkpoint key set, held apart from the database administrators (D16)",
+                        len(env.get("CM_CHECKPOINT_KEY", "")) >= 32, "set" if len(env.get("CM_CHECKPOINT_KEY", "")) >= 32
+                        else "CM_CHECKPOINT_KEY not set: checkpoints are signed with a key derived from AUDIT_SECRET"))
+    checks.append(Check("Key for two-step verification secrets set (D16)", len(env.get("MFA_KEY", "")) >= 32,
+                        "set" if len(env.get("MFA_KEY", "")) >= 32 else "MFA_KEY not set: derived from JWT_SECRET"))
+    own_login = len(env.get("POSTGRES_APP_PASSWORD", "")) >= 16
+    checks.append(Check("The application uses its own database login, without DELETE (D16)", own_login,
+                        "POSTGRES_APP_USER / POSTGRES_APP_PASSWORD set" if own_login else "not set: the owner login is used"))
+    test_source_off = env.get("CM_TEST_SOURCE", "true").lower() == "false"
+    checks.append(Check("Fictional test source turned off (D16)", test_source_off,
+                        "CM_TEST_SOURCE=false" if test_source_off else "still on: set CM_TEST_SOURCE=false"))
+    recent = worker_last_run is not None and now - worker_last_run <= dt.timedelta(hours=48)
+    checks.append(Check("The worker's daily checks ran in the last 48 hours (D16)", recent,
+                        f"last run {worker_last_run:%Y-%m-%d %H:%M} UTC" if worker_last_run else "no run recorded: start the worker"))
+
+    # The fictional demonstration (phase CM-8) belongs in development and training databases only. Case records can't be
+    # deleted, so a production database that holds it must be replaced by a fresh one before real records go in.
+    checks.append(Check("No fictional demonstration case in this database (CM-8)", demo_case is None,
+                        "none" if demo_case is None else f"{demo_case} (FICTIONAL demonstration) is here: real records need a fresh "
+                                                         "database, as case records can't be deleted"))
+    active = demo_accounts_active or []
+    checks.append(Check("Fictional demonstration accounts deactivated (CM-8)", not active,
+                        "none active" if not active else f"active: {', '.join(active)} (scripts.create_user <name> --deactivate)"))
     return checks
 
 

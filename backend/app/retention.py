@@ -3,6 +3,8 @@
 - Uploaded "new case" documents, with everything derived from them, after UPLOAD_RETENTION_DAYS (default 30).
 - Audit entries after AUDIT_RETENTION_DAYS, but only if that is set. How long an audit trail must be kept
   is for your organisation to decide (docs/steps/14-5-*); until then nothing is deleted from it.
+- Never Case Management records, nor their audit events (`cm.…`): case history is permanent. Retention of
+  case records is a formal compliance decision, not an automatic deletion (docs/case-management/07 §6).
 
 Each run is itself recorded in the audit log, with what it deleted.
 """
@@ -45,14 +47,16 @@ def apply_retention(
 
     old_uploads = list(session.scalars(select(Upload).where(Upload.created_at < upload_cutoff)))
     old_audit = 0
+    # Case Management's audit trail is part of the permanent case history: never deleted here.
+    expired = [AuditEvent.occurred_at < audit_cutoff, AuditEvent.action.not_like("cm.%")] if audit_cutoff else []
     if audit_cutoff:
-        old_audit = session.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.occurred_at < audit_cutoff))
+        old_audit = session.scalar(select(func.count()).select_from(AuditEvent).where(*expired))
 
     if not dry_run:
         for upload in old_uploads:
             delete_upload(session, data_dir, upload)  # the file and every derived row
         if audit_cutoff:
-            session.execute(delete(AuditEvent).where(AuditEvent.occurred_at < audit_cutoff))
+            session.execute(delete(AuditEvent).where(*expired))
             session.commit()
 
     result = RetentionResult(len(old_uploads), old_audit, upload_cutoff, audit_cutoff, dry_run)

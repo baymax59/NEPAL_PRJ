@@ -180,8 +180,8 @@ def build_sources(
     return sources, blocks
 
 
-def build_messages(question: str, history: list[ChatTurn], blocks: list[str]) -> list[dict[str, str]]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+def build_messages(question: str, history: list[ChatTurn], blocks: list[str], system_prompt: str = SYSTEM_PROMPT) -> list[dict[str, str]]:
+    messages = [{"role": "system", "content": system_prompt}]
     for turn in history[-HISTORY_TURNS:]:
         # Earlier answers lose their [S2] markers: source numbers are new for every question,
         # so an old marker copied into a new answer would point at the wrong passage.

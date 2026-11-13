@@ -21,6 +21,7 @@ from sqlalchemy import (
     Identity,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -30,6 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.casemgmt.enums import OrgRole
 from app.core.enums import (
     AuditOutcome,
     EventSource,
@@ -323,7 +325,7 @@ class UploadChunk(Base):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (in_check("role", Role), in_check("clearance", Sensitivity))
+    __table_args__ = (in_check("role", Role), in_check("clearance", Sensitivity), in_check("org_role", OrgRole))
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     username: Mapped[str] = mapped_column(String(64), unique=True)  # stored lower-case
@@ -337,6 +339,26 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Case Management (Step 15): the user's organisation (tenant) and organisation role. `role` above
+    # stays the Case Intelligence role (viewer / analyst / admin).
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organizations.id"), index=True)
+    org_role: Mapped[str] = mapped_column(String(16), default=OrgRole.VIEWER.value, server_default=OrgRole.VIEWER.value)
+    # A temporary password was handed over (new account, or a reset): the owner must choose their own before anything else.
+    must_change_password: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # When the current role took effect (empty = from the start). Powers that come from the role itself reach only cases
+    # registered since then: a promotion adds no power over cases that already exist (docs/case-management/12 section 5).
+    org_role_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The person's own profile (migration 0023): filled in by them, all optional. Name, officer ID, rank and station come from the register.
+    email: Mapped[str | None] = mapped_column(String(200))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    job_title: Mapped[str | None] = mapped_column(String(100))
+    profile_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The profile photo (migration 0024): a small JPEG made by app/auth/photos.py. Loaded only when the picture is asked for.
+    photo_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    photo_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The real officer this account belongs to (officer_registry). Empty only for accounts made before migration 0016.
+    officer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("officer_registry.id", use_alter=True, name="fk_users_officer_id_officer_registry"), unique=True)
 
 
 class CaseAccessGrant(Base):
@@ -373,6 +395,24 @@ class AuditEvent(Base):
     target_id: Mapped[str | None] = mapped_column(String(128))
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default=EMPTY_JSON_OBJECT)
     client_ip: Mapped[str | None] = mapped_column(String(64))
+    # Case Management events (action "cm.*") form a hash chain (phase CM-7, docs/case-management/04 §8). The database
+    # fills these on insert (trigger cm_audit_events_chain); they are never set by the application. Other events stay
+    # outside the chain, under their own retention rule (Step 14.3).
+    chain_seq: Mapped[int | None] = mapped_column(BigInteger, unique=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64))
+    hash: Mapped[str | None] = mapped_column(String(64))
+
+
+class UserMfa(Base):
+    """A user's two-step verification (TOTP, phase CM-7). The secret is stored encrypted (app/auth/mfa.py)."""
+
+    __tablename__ = "user_mfa"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    secret_encrypted: Mapped[str] = mapped_column(Text)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # set by the first valid code
+    last_step: Mapped[int | None] = mapped_column(BigInteger)  # the last 30-second step used: each code works once
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class CaseEntity(Base):
@@ -419,3 +459,7 @@ class CaseEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     case: Mapped[Case] = relationship(back_populates="events")
+
+
+# Case Management tables (Step 15) share this metadata, so migrations and `alembic check` see them.
+from app.casemgmt import models as _casemgmt_models  # noqa: E402,F401

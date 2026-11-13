@@ -53,6 +53,13 @@ class FailedLoginLimiter:
 
 
 @lru_cache
+def get_signup_limiter() -> FailedLoginLimiter:
+    """One limiter for sign-up attempts (every attempt is recorded; tests replace it)."""
+    settings = get_settings()
+    return FailedLoginLimiter(settings.max_signups_per_ip, settings.signup_window_minutes * 60)
+
+
+@lru_cache
 def get_login_limiter() -> FailedLoginLimiter:
     """FastAPI dependency: one limiter for the whole backend process (tests replace it)."""
     settings = get_settings()

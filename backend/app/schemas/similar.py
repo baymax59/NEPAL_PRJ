@@ -45,6 +45,7 @@ class PassageExcerpt(BaseModel):
     page_start: int | None
     page_end: int | None
     text: str  # the start of the passage, plain text
+    source: str | None = None  # which document or note, when the query has several (an investigation)
 
 
 class PassagePair(BaseModel):
@@ -73,7 +74,7 @@ class SimilarCase(BaseModel):
 
 
 class QueryDocumentInfo(BaseModel):
-    kind: Literal["upload", "case"]
+    kind: Literal["upload", "case", "investigation"]
     id: str
     title: str
     page_count: int | None

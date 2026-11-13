@@ -1,6 +1,7 @@
 """FastAPI dependencies: who is calling, what they may see, and what they may do."""
 
 import datetime as dt
+import uuid
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.audit.log import AuditLog, get_audit_log
 from app.auth.access import AccessContext, sensitivities_up_to
-from app.auth.tokens import read_access_token
+from app.auth.tokens import read_access_claims
 from app.core.enums import AuditOutcome, Role
 from app.db.models import CaseAccessGrant, User
 from app.db.session import get_db
@@ -18,17 +19,25 @@ from app.db.session import get_db
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
 
+# While a temporary password is in use, only these answer: who am I, and set my own password.
+PASSWORD_CHANGE_PATHS = ("/auth/me", "/auth/change-password")
+
+
 def get_current_user(
-    token: Annotated[str | None, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
+    request: Request, token: Annotated[str | None, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
 ) -> User:
-    user_id = read_access_token(token) if token else None
-    user = db.get(User, user_id) if user_id else None
+    claims = read_access_claims(token) if token else None
+    user = db.get(User, uuid.UUID(claims["sub"])) if claims else None
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if user.must_change_password and not request.url.path.endswith(PASSWORD_CHANGE_PATHS):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You must set your own password first (your password is temporary)")
+    # Whether this login included a two-step verification code (privileged actions may require it: app/auth/mfa.py).
+    user.mfa_verified = "otp" in (claims.get("amr") or [])
     return user
 
 
