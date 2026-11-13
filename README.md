@@ -11,7 +11,29 @@ Similarity scores show **relevance for review**. They do not mean two cases are 
 - **Handover** (status, verification, decisions needed before real police records, limitations): [docs/HANDOVER.md](docs/HANDOVER.md)
 - **Before real police records**: the sign-off form [docs/DECISIONS.md](docs/DECISIONS.md), the [internal security review](docs/SECURITY_REVIEW.md), and `cd backend; uv run python -m scripts.readiness_check`
 
-## Quick start (Windows, PowerShell)
+## Demo setup (one command, Windows PowerShell)
+
+Requirements: [Docker Desktop](https://www.docker.com/products/docker-desktop/), [uv](https://docs.astral.sh/uv/). Node.js and Git are optional for the full dev workflow. [Ollama](https://ollama.com/) is needed for the case assistant.
+
+```powershell
+git clone https://github.com/baymax59/NEPAL_PRJ.git
+cd NEPAL_PRJ
+.\demo-setup.ps1
+```
+
+`demo-setup.ps1` generates `.env` with secure random secrets, starts PostgreSQL + the full HTTPS stack on **https://localhost:8443**, imports 100 Supreme Court judgment samples, computes AI embeddings (~13 min on CPU), and creates three demo accounts:
+
+| Account | Password | Role |
+|---|---|---|
+| `admin` | `Admin@Nepal2024!` | Admin — sees everything, audit log |
+| `analyst` | `Analyst@Nepal2024!` | Upload new cases, CDR analysis |
+| `viewer` | `Viewer@Nepal2024!` | Read-only search and case details |
+
+Credentials are also saved to `.dev-credentials.txt` (git-ignored). Pass `-SkipData` to skip data import and start the app immediately.
+
+---
+
+## Manual quick start (Windows, PowerShell)
 
 Requirements: Docker Desktop, [uv](https://docs.astral.sh/uv/), Git. Node.js is needed from Step 11. [Ollama](https://ollama.com/) is needed for the case assistant (Step 13).
 
