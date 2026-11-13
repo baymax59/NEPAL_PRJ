@@ -9,9 +9,10 @@ import datetime as dt
 import re
 import sys
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth.passwords import verify_password
+from app.casemgmt.models import JobRun
 from app.connectors.police_records.fields import CONNECTOR_VERSION
 from app.core.config import PROJECT_ROOT, get_settings
 from app.db.models import User
@@ -33,6 +34,23 @@ def dev_accounts_in_use() -> list[str]:
     return sorted(in_use)
 
 
+def worker_last_run() -> dt.datetime | None:
+    """When the worker (or an administrator) last ran a scheduled job (phase CM-7)."""
+    with SessionLocal() as session:
+        return session.scalar(select(func.max(JobRun.finished_at)))
+
+
+def demonstration() -> tuple[str | None, list[str]]:
+    """The fictional demonstration case (phase CM-8) if it is in this database, and its accounts that are still active."""
+    from scripts.demo_case import ACCOUNTS, find_demo
+
+    with SessionLocal() as session:
+        family = find_demo(session)
+        names = [account[1] for account in ACCOUNTS]
+        active = session.scalars(select(User.username).where(User.username.in_(names), User.is_active.is_(True))).all()
+        return (family.display_id if family else None), sorted(active)
+
+
 def show(title: str, checks) -> int:
     done = sum(c.done for c in checks)
     print(f"\n{title}: {done} of {len(checks)} done")
@@ -44,6 +62,7 @@ def show(title: str, checks) -> int:
 def main() -> None:
     settings = get_settings()
     form = decisions(PROJECT_ROOT / "docs" / "DECISIONS.md")
+    demo_case, demo_accounts = demonstration()
     technical = technical_checks(
         PROJECT_ROOT,
         read_env(PROJECT_ROOT / ".env"),
@@ -52,6 +71,10 @@ def main() -> None:
         audit_retention_days=settings.audit_retention_days,
         dev_accounts_in_use=dev_accounts_in_use(),
         now=dt.datetime.now(dt.UTC),
+        evidence_root=settings.evidence_root,
+        worker_last_run=worker_last_run(),
+        demo_case=demo_case,
+        demo_accounts_active=demo_accounts,
     )
     print(f"Go-live readiness for real police records ({dt.date.today().isoformat()})")
     done = show("Decisions (docs/DECISIONS.md, signed by your organisation)", form)

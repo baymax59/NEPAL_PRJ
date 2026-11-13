@@ -11,6 +11,8 @@ os.environ["POSTGRES_DB"] = "casesdb_test"
 os.environ["PRELOAD_MODELS"] = "false"  # tests use FakeEmbedder; don't load PyTorch in the background
 os.environ["JWT_SECRET"] = "test-only-jwt-secret-0123456789abcdefghijklmnop"
 os.environ["AUDIT_SECRET"] = "test-only-audit-secret-0123456789abcdefghijklm"
+os.environ["CM_TEST_SOURCE"] = "true"  # the tests of the integrations use the fictional test source, whatever the real .env says (it is off there)
+os.environ["SELF_REGISTRATION"] = "true"  # likewise: the tests of signing up do not depend on the real .env
 TEST_PASSWORD = "correct horse battery staple"
 
 import math  # noqa: E402
@@ -189,16 +191,30 @@ def auth_header(user) -> dict[str, str]:
 
 
 @pytest.fixture
-def app_overrides(db_session, fake_embedder):
-    """Point the app at the test's session (data and audit rows roll back) and the fake model."""
+def evidence_store(tmp_path):
+    """A write-once evidence store in the test's temporary folder (never data/evidence)."""
+    from app.casemgmt.storage import LocalEvidenceStore
+
+    return LocalEvidenceStore(tmp_path / "evidence-store")
+
+
+@pytest.fixture
+def app_overrides(db_session, fake_embedder, evidence_store):
+    """Point the app at the test's session (data and audit rows roll back), the fake model and a temporary evidence store."""
     from app.audit.log import AuditLog, get_audit_log
     from app.auth.ratelimit import FailedLoginLimiter, get_login_limiter
-    from app.db.session import get_db
+    from app.casemgmt.storage import get_evidence_store
+    from contextlib import nullcontext
+
+    from app.db.session import get_db, get_session_factory
     from app.embeddings.model import get_embedder
     from app.main import app
 
     app.dependency_overrides[get_db] = lambda: db_session
+    # Long-lived responses (the notification stream) borrow the test's session instead of opening their own.
+    app.dependency_overrides[get_session_factory] = lambda: (lambda: nullcontext(db_session))
     app.dependency_overrides[get_embedder] = lambda: fake_embedder
+    app.dependency_overrides[get_evidence_store] = lambda: evidence_store
     app.dependency_overrides[get_audit_log] = lambda: AuditLog(client_ip="testclient", session=db_session)
     # A fresh login limiter per test: every test client logs in from the same address ("testclient").
     limiter = FailedLoginLimiter(limit=20, window_seconds=900)
@@ -304,3 +320,45 @@ def make_record():
         return CaseRecord.model_validate(data)
 
     return _make
+
+
+# ---------------------------------------------------------------- Case Management (docs/case-management/)
+
+
+@pytest.fixture
+def cm_user(db_session):
+    """cm_user("name", org_role=..., clearance=..., organization=...) -> a user with a Case Management role."""
+    from app.auth.users import create_user
+    from app.casemgmt.enums import OrgRole
+    from app.core.enums import Role, Sensitivity
+
+    def _make(username: str, org_role: str = "investigator", clearance: str = "restricted", organization=None):
+        role = Role.ADMIN if org_role == OrgRole.SUPER_ADMIN else Role.ANALYST
+        user = create_user(db_session, username, username.title(), TEST_PASSWORD, role, Sensitivity(clearance),
+                           OrgRole(org_role), organization)
+        # Saved now: a refused request rolls back what isn't saved yet (the test's outer transaction still
+        # undoes everything at the end).
+        db_session.commit()
+        return user
+
+    return _make
+
+
+@pytest.fixture
+def cm_client(app_overrides, cm_user):
+    """cm_client("name", org_role=..., clearance=...) -> a client logged in as a new Case Management user (.user)."""
+    from fastapi.testclient import TestClient
+
+    clients = []
+
+    def _client(username: str, org_role: str = "investigator", clearance: str = "restricted", organization=None):
+        user = cm_user(username, org_role, clearance, organization)
+        client = TestClient(app_overrides, headers=auth_header(user))
+        client.__enter__()
+        client.user = user
+        clients.append(client)
+        return client
+
+    yield _client
+    for client in clients:
+        client.__exit__(None, None, None)

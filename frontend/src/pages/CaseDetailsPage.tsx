@@ -18,7 +18,6 @@ import {
 } from '@mantine/core'
 import {
   IconArrowLeft,
-  IconChartLine,
   IconExternalLink,
   IconInfoCircle,
   IconMessageChatbot,
@@ -427,7 +426,6 @@ function DataQuality({ detail }: { detail: CaseDetail }) {
           ['Imported by', `${provenance.connector ?? '?'} (version ${provenance.connector_version ?? '?'})`],
           ['Source retrieved', provenance.retrieved_at ? formatDateTime(provenance.retrieved_at) : '—'],
           ['Source file', <Text key="u" size="sm" style={{ wordBreak: 'break-all' }}>{provenance.source_uri ?? '—'}</Text>],
-          ['Source checksum (SHA-256)', <Text key="c" size="xs" ff="monospace" style={{ wordBreak: 'break-all' }}>{provenance.checksum_sha256 ?? '—'}</Text>],
           ['Record created / updated', `${formatDateTime(detail.created_at)} / ${formatDateTime(detail.updated_at)}`],
         ]}
       />
@@ -498,16 +496,6 @@ export function CaseDetailsPage() {
             {label}
           </Anchor>
         ))}
-        <Button
-          component={Link}
-          to={`/cases/${data.display_id}/cdr`}
-          variant="light"
-          color="teal"
-          size="xs"
-          leftSection={<IconChartLine size={14} />}
-        >
-          Open CDR Analysis
-        </Button>
       </Group>
 
       <Section id="identification" title="A. Identification">
@@ -538,15 +526,6 @@ export function CaseDetailsPage() {
           </Button>
           <Button component={Link} to={`/cases/${data.display_id}/similar`} leftSection={<IconStack2 size={16} />}>
             Find and compare similar cases
-          </Button>
-          <Button
-            component={Link}
-            to={`/cases/${data.display_id}/cdr`}
-            variant="light"
-            color="teal"
-            leftSection={<IconChartLine size={16} />}
-          >
-            CDR Analysis
           </Button>
           <Button variant="default" onClick={() => window.print()} leftSection={<IconPrinter size={16} />}>
             Print

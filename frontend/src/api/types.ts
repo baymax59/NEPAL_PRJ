@@ -9,12 +9,69 @@ export interface UserOut {
   display_name: string
   role: Role
   clearance: string
+  /** Case Management organisation role: super_admin, administrator, supervisor, investigator, sub_investigator, analyst or viewer. */
+  org_role: string
+  organization_id: string | null
+  /** This login included a two-step verification code (CM-7). */
+  mfa_verified?: boolean
+  /** A temporary password is in use: only 'who am I' and 'set my own password' answer until it is changed. */
+  must_change_password?: boolean
+  /** The person's own profile: empty until they fill it in (profile_updated_at is null until they save it once). */
+  email?: string | null
+  phone?: string | null
+  job_title?: string | null
+  profile_updated_at?: string | null
+  /** Set when the person has a profile photo (fetched with GET /auth/photo/{id}). */
+  photo_updated_at?: string | null
+}
+
+export interface Profile {
+  username: string
+  display_name: string
+  org_role: string
+  clearance: string
+  officer_number: string | null
+  rank: string | null
+  stations: string[]
+  email: string | null
+  phone: string | null
+  job_title: string | null
+  profile_updated_at: string | null
+  id?: string | null
+  photo_updated_at?: string | null
+}
+
+export interface ProfileIn {
+  email: string | null
+  phone: string | null
+  job_title: string | null
+}
+
+/** An officer creating their own login: the role, clearance and station are never asked for here. */
+export interface RegisterIn {
+  officer_number: string
+  full_name: string
+  username: string
+  password: string
+  email?: string | null
+  phone?: string | null
+}
+
+export interface RegisteredOut {
+  username: string
+  display_name: string
+  org_role: string
+  station: string
+  message: string
 }
 
 export interface TokenOut {
   access_token: string
   token_type: string
   expires_in: number
+  /** Two-step verification: the password was right; send the ticket and a code to /auth/mfa/login. */
+  mfa_required?: boolean
+  mfa_ticket?: string | null
 }
 
 export interface CaseSummary {
@@ -283,12 +340,4 @@ export interface ChatAnswer {
   model: string
   seconds: number
   disclaimer: string
-}
-
-export interface CdrSession {
-  case_id: string
-  display_name: string
-  role: string
-  msisdn_rule: string
-  timezone: string
 }

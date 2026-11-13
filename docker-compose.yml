@@ -36,7 +36,7 @@ services:
     profiles: ["app"]
     build: ./backend
     image: case-search-backend:local
-    environment:
+    environment: &backend-environment
       # The development .env says "development"; inside Docker the API runs as production
       # (no interactive API docs) unless APP_ENVIRONMENT says otherwise.
       ENVIRONMENT: ${APP_ENVIRONMENT:-production}
@@ -55,6 +55,26 @@ services:
       # Retention (Step 14.3, scripts.retention). AUDIT_RETENTION_DAYS empty = keep audit entries.
       UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-30}
       AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-}
+      # Case Management evidence (Step 15.2, decision D14). Stored in the appdata volume, which the backups include.
+      MAX_EVIDENCE_MB: ${MAX_EVIDENCE_MB:-100}
+      EVIDENCE_DOWNLOAD_MINUTES: ${EVIDENCE_DOWNLOAD_MINUTES:-5}
+      EVIDENCE_ACCEPT_PROGRAMS: ${EVIDENCE_ACCEPT_PROGRAMS:-true}
+      # Case Management integrations (Step 15.6). The fictional test source: set CM_TEST_SOURCE=false in production.
+      CM_TEST_SOURCE: ${CM_TEST_SOURCE:-true}
+      CM_PHONE_COUNTRY_CODE: ${CM_PHONE_COUNTRY_CODE:-91}
+      # Case Management governance (Step 15.7). The application's own database login, created at start by
+      # scripts.db_roles: it can't delete case records. Without POSTGRES_APP_PASSWORD the owner login is used.
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-caseapp}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
+      # Keys kept outside the database (decision D16): audit checkpoints and two-step verification secrets.
+      CM_CHECKPOINT_KEY: ${CM_CHECKPOINT_KEY:-}
+      MFA_KEY: ${MFA_KEY:-}
+      CM_MFA_REQUIRED: ${CM_MFA_REQUIRED:-false}
+      CM_WORKER_INTERVAL: ${CM_WORKER_INTERVAL:-300}
+      # Officers create their own login on the log in page (view-only until raised); switch off with false.
+      SELF_REGISTRATION: ${SELF_REGISTRATION:-true}
+      CASE_SIMILAR_PASSAGE_MIN_SIMILARITY: ${CASE_SIMILAR_PASSAGE_MIN_SIMILARITY:-0.70}
+      CHAT_THREADS: ${CHAT_THREADS:-0}
       # The embedding model is read from ./models; never contact the internet for it.
       HF_HUB_OFFLINE: "1"
     extra_hosts:
@@ -75,6 +95,20 @@ services:
       start_period: 30s
     restart: unless-stopped
     # No "ports": only the web server can reach the API.
+
+  worker:
+    # Case Management's scheduled jobs (Step 15.7): audit checkpoints, audit chain and evidence checks, daily.
+    profiles: ["app"]
+    image: case-search-backend:local
+    command: ["python", "-m", "scripts.worker"]
+    environment: *backend-environment
+    volumes:
+      - appdata:/srv/case-search/data
+      - ./models:/srv/case-search/models
+    depends_on:
+      backend:
+        condition: service_healthy  # the migrations ran and the application's database login is ready
+    restart: unless-stopped
 
   web:
     profiles: ["app"]
@@ -129,49 +163,8 @@ services:
     entrypoint: ["sh"]
     command: ["/deploy/backup.sh"]
 
-  # --- CDR Analysis services (optional; start with --profile cdr) ---
-  # Copy config-templates/india_profile.env.example values into your .env to activate.
-
-  cdr-db-d1:
-    profiles: ["cdr"]
-    image: postgres:17
-    environment:
-      POSTGRES_USER: ${CDR_D1_DB_USER:-cdr_app}
-      POSTGRES_PASSWORD: ${CDR_D1_DB_PASSWORD:?Set CDR_D1_DB_PASSWORD in .env for CDR services}
-      POSTGRES_DB: ${CDR_D1_DB_NAME:-cdr_analysis}
-    ports:
-      - "127.0.0.1:${CDR_D1_DB_PORT:-55470}:5432"
-    volumes:
-      - cdr_pgdata_d1:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  cdr-db-d3:
-    profiles: ["cdr"]
-    image: postgis/postgis:17-3.5
-    environment:
-      POSTGRES_USER: ${CDR_D3_DB_USER:-cdr_d3}
-      POSTGRES_PASSWORD: ${CDR_D3_DB_PASSWORD:?Set CDR_D3_DB_PASSWORD in .env for CDR services}
-      POSTGRES_DB: ${CDR_D3_DB_NAME:-cdr_d3}
-    ports:
-      - "127.0.0.1:${CDR_D3_DB_PORT:-55471}:5432"
-    volumes:
-      - cdr_pgdata_d3:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
 volumes:
   pgdata:
   appdata:
   caddy_data:
   caddy_config:
-  cdr_pgdata_d1:
-  cdr_pgdata_d3:

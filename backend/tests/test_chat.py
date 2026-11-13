@@ -245,6 +245,26 @@ def test_the_model_is_asked_for_a_short_answer_that_sticks_to_the_sources():
     assert sent["body"]["options"]["temperature"] <= 0.2
 
 
+def test_the_model_may_use_the_processors_of_this_computer(monkeypatch):
+    """Ollama chose 6 of 12 threads on this laptop, which read a question about 1.75 times slower than all 12."""
+    import os
+
+    sent = []
+
+    def handler(request):
+        sent.append(json.loads(request.content)["options"])
+        return httpx.Response(200, content=lines({"message": {"content": "ok"}, "done": True}))
+
+    ask = [{"role": "user", "content": "hi"}]
+    monkeypatch.setattr(os, "cpu_count", lambda: 12)
+    ollama(handler).complete(ask)  # no number set: all of this computer's processors
+    OllamaChatModel("http://127.0.0.1:11434/", "m1", 7, transport=httpx.MockTransport(handler), threads=4).complete(ask)  # a chosen number
+    assert [o["num_thread"] for o in sent] == [12, 4]
+    monkeypatch.setattr(os, "cpu_count", lambda: None)
+    ollama(handler).complete(ask)  # unknown: let Ollama choose
+    assert "num_thread" not in sent[-1]
+
+
 @pytest.mark.parametrize(
     ("failure", "message"),
     [

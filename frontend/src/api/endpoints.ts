@@ -8,9 +8,12 @@ import type {
   CaseList,
   ChatAnswer,
   ChatTurn,
-  CdrSession,
   FilterOptions,
   MatchExplanation,
+  Profile,
+  ProfileIn,
+  RegisteredOut,
+  RegisterIn,
   SearchRequest,
   SearchResponse,
   SimilarCasesResponse,
@@ -28,7 +31,28 @@ export const login = (username: string, password: string) =>
     isLogin: true,
   })
 
+export const loginSecondStep = (ticket: string, code: string) =>
+  apiFetch<TokenOut>('/auth/mfa/login', { method: 'POST', json: { ticket, code }, isLogin: true })
+
+export const registrationStatus = () => apiFetch<{ enabled: boolean }>('/auth/registration', { isLogin: true })
+
+export const registerYourself = (body: RegisterIn) => apiFetch<RegisteredOut>('/auth/register', { method: 'POST', json: body, isLogin: true })
+
 export const getMe = () => apiFetch<UserOut>('/auth/me')
+
+export const getProfile = () => apiFetch<Profile>('/auth/profile')
+
+export const saveProfile = (body: ProfileIn) => apiFetch<Profile>('/auth/profile', { method: 'POST', json: body })
+
+export const uploadPhoto = (file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return apiFetch<Profile>('/auth/profile/photo', { method: 'POST', body })
+}
+
+export const removePhoto = () => apiFetch<Profile>('/auth/profile/photo/remove', { method: 'POST' })
+
+export const fetchPhoto = (userId: string) => apiFetch<Blob>(`/auth/photo/${encodeURIComponent(userId)}`, { as: 'blob' })
 
 export const listCases = (params: Record<string, string | number | null | undefined | string[]>) =>
   apiFetch<CaseList>('/cases', { params })
@@ -70,6 +94,3 @@ export const deleteUpload = (uploadId: string) => apiFetch<void>(`/uploads/${id(
 
 export const getAuditLog = (params: Record<string, string | number | null | undefined>) =>
   apiFetch<AuditPage>('/audit', { params })
-
-export const getCdrSession = (caseId: string) =>
-  apiFetch<CdrSession>(`/cdr/session?case_id=${encodeURIComponent(caseId)}`)

@@ -12,10 +12,13 @@ export const tokenStore = {
 
 export class ApiError extends Error {
   status: number
+  /** The response body, e.g. the list of conflicts that came with a 409. */
+  payload: unknown
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, payload: unknown = null) {
     super(message)
     this.status = status
+    this.payload = payload
   }
 }
 
@@ -26,15 +29,19 @@ export function setUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler
 }
 
-type ParamValue = string | number | null | undefined | string[]
+type ParamValue = string | number | boolean | null | undefined | string[]
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'DELETE'
   json?: unknown
   body?: FormData | URLSearchParams
   params?: Record<string, ParamValue>
+  /** Extra request headers, e.g. Idempotency-Key. */
+  headers?: Record<string, string>
   /** For the login request itself: a 401 there means wrong credentials, not an expired login. */
   isLogin?: boolean
+  /** Answer the file itself (a picture) instead of JSON. */
+  as?: 'blob'
 }
 
 function errorMessage(payload: unknown, fallback: string): string {
@@ -54,7 +61,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     for (const item of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(item))
   }
 
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = { ...options.headers }
   const token = tokenStore.get()
   if (token && !options.isLogin) headers.Authorization = `Bearer ${token}`
   let body: BodyInit | undefined = options.body
@@ -77,8 +84,9 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
-    throw new ApiError(response.status, errorMessage(payload, `Request failed (${response.status})`))
+    throw new ApiError(response.status, errorMessage(payload, `Request failed (${response.status})`), payload)
   }
   if (response.status === 204) return undefined as T
+  if (options.as === 'blob') return (await response.blob()) as T
   return (await response.json()) as T
 }

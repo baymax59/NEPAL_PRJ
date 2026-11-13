@@ -52,6 +52,15 @@
 		reverse_proxy backend:8000
 	}
 
+	# Case Management evidence files: the backend accepts at most MAX_EVIDENCE_MB (100 MB by default, decision D14).
+	# Keep this a little above that value if it changes.
+	handle /api/v1/repositories/*/evidence {
+		request_body {
+			max_size 110MB
+		}
+		reverse_proxy backend:8000
+	}
+
 	handle /api/* {
 		request_body {
 			max_size 1MB

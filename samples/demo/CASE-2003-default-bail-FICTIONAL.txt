@@ -1,0 +1,21 @@
+FICTIONAL SAMPLE - prepared to demonstrate the case search system. Not a real case; no real persons.
+
+IN THE COURT OF THE SESSIONS JUDGE, EXAMPLE DISTRICT (FICTIONAL)
+CRIMINAL MISCELLANEOUS (BAIL) APPLICATION No. 2003 of 2023
+The applicant (accused No. 2) versus The State of Example State
+
+1. The applicant was arrested on 2 January 2023 in connection with an FIR registered at Example Nagar Police Station for
+   offences of criminal conspiracy and cheating, and has been in judicial custody since 3 January 2023.
+2. The period of 90 days for completing the investigation expired on 2 April 2023. No charge sheet, that is no final report
+   under Section 173 of the Code of Criminal Procedure, was filed within that period, and the prosecution did not apply for
+   any extension of time.
+3. On 3 April 2023 the applicant applied for default bail under the proviso to Section 167(2) of the Code of Criminal
+   Procedure. The investigating agency filed a charge sheet on 5 April 2023, after the application had been made, and opposed
+   bail on the ground that the charge sheet had since been filed.
+4. The applicant submits that his indefeasible right to statutory bail accrued when the 90 days expired and was availed of when
+   he applied, before any charge sheet was filed. Filing the charge sheet afterwards cannot defeat that right, and the time
+   spent in custody cannot be extended by keeping the application pending.
+5. He is ready to furnish bail bonds and to comply with any conditions the Court imposes.
+
+RELIEF
+Release the applicant on default bail under Section 167(2) of the Code of Criminal Procedure on such terms as the Court thinks fit.

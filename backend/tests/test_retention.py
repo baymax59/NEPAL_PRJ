@@ -21,8 +21,8 @@ def make_upload(session, data_dir, embedder, days_old: int) -> Upload:
     return upload
 
 
-def audit_entry(session, days_old: int) -> int:
-    event = AuditEvent(action="case.view", outcome="success", details={}, occurred_at=NOW - dt.timedelta(days=days_old))
+def audit_entry(session, days_old: int, action: str = "case.view") -> int:
+    event = AuditEvent(action=action, outcome="success", details={}, occurred_at=NOW - dt.timedelta(days=days_old))
     session.add(event)
     session.flush()
     return event.id
@@ -70,6 +70,14 @@ def test_audit_entries_are_kept_unless_a_period_is_set(db_session, tmp_path):
     assert result.audit_events == 1
     assert not exists(db_session, AuditEvent, AuditEvent.id, ancient)
     assert exists(db_session, AuditEvent, AuditEvent.id, recent)
+
+
+def test_case_management_audit_events_are_never_deleted(db_session, tmp_path):
+    """Case history is permanent (docs/case-management/07 §6): its audit trail is outside retention."""
+    case_event = audit_entry(db_session, days_old=3000, action="cm.evidence.added")
+    other = audit_entry(db_session, days_old=3000)
+    assert run(db_session, tmp_path, audit_days=365).audit_events == 1
+    assert exists(db_session, AuditEvent, AuditEvent.id, case_event) and not exists(db_session, AuditEvent, AuditEvent.id, other)
 
 
 def test_every_run_is_audited(db_session, tmp_path, fake_embedder):
